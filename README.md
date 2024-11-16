@@ -4,5 +4,5 @@ Slowformer is a transformer framework designed to prioritize:
 - Monitorability: Seamlessly track weight updates, gradients, and activations with robust logging and visualization tools.
 - Deliberate Speed: Crafted for research and experimentation, Slowformer values clarity and explainability over raw computational speed.
 
-ToDo List
-[] Implement Basic Transformer Model
+## ToDo List
+- [ ] Implement Basic Transformer Model
