@@ -6,3 +6,7 @@ Slowformer is a transformer framework designed to prioritize:
 
 ## ToDo List
 - [ ] Implement Basic Transformer Model
+
+## Reading List
+### Transformer Architecture
+- [ ] [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
