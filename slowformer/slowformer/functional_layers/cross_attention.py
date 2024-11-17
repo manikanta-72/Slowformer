@@ -21,7 +21,7 @@ class CrossAttention(nn.Module):
         """Returns cross-attended inputs with Q"""
         Q, K, V = self.q_proj(q), self.k_proj(inputs), self.v_proj(inputs)
 
-        Q_K = Q.T @ K
+        Q_K = Q @ K.T
 
         v_activations = F.softmax(Q_K / math.sqrt(self.d_model), dim=-1)
 

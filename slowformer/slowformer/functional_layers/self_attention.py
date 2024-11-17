@@ -19,7 +19,7 @@ class SelfAttention(nn.Module):
         """Returns self-attended inputs"""
         Q, K, V = T.split(self.attn_proj(inputs), self.d_model)  # (N, d_model)
 
-        Q_K = Q.T @ K if not is_causal else apply_causal_mask(Q.T @ K)  # (N, N)
+        Q_K = Q @ K.T if not is_causal else apply_causal_mask(Q.T @ K)  # (N, N)
 
         v_activations = F.softmax(Q_K / math.sqrt(self.d_model), dim=-1)  # (N, N)
 
