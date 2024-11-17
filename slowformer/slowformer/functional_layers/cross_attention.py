@@ -8,6 +8,7 @@ import torch.nn.functional as F
 
 
 class CrossAttention(nn.Module):
+    """Cross Attention"""
 
     def __init__(self, d_model: int) -> None:
         super().__init__()
