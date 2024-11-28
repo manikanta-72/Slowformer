@@ -11,11 +11,13 @@ import torch.nn.functional as F
 
 class MultiHeadAttention(nn.Module):
 
-    def __init__(self, d_model: int, num_heads: int, d_keys: Optional[int]=None, d_values: Optional[int]=None):
+    def __init__(self, d_model: int, num_heads: int, dropout_ratio: float, d_keys: Optional[int]=None, d_values: Optional[int]=None):
         super().__init__()
         self.d_model = d_model
         self.d_keys = d_keys or d_model
         self.d_values = d_values or d_model
+
+        self.dropout = nn.Dropout(p=dropout_ratio)
 
         self.num_heads = num_heads
         self.head_dim = d_model // num_heads
@@ -42,7 +44,7 @@ class MultiHeadAttention(nn.Module):
 
         Q_K = Q @ K.transpose(-2,-1) if not mask else apply_mask(Q @ K.transpose(-2,-1), mask)
 
-        v_activations = F.softmax(Q_K / math.sqrt(self.d_keys), dim=-1)  # (B, N_H, N, N)
+        v_activations = self.dropout(F.softmax(Q_K / math.sqrt(self.d_keys), dim=-1))  # (B, N_H, N, N)
 
         return v_activations @ V  # (B, N_H, N, H_Dim)
     
@@ -72,7 +74,7 @@ class MultiHeadAttention(nn.Module):
         K = K.view(batch_size, -1, self.num_heads, self.head_dim).transpose(1, 2)
         V = V.view(batch_size, -1, self.num_heads, self.head_dim).transpose(1, 2)
 
-        attn_output = self.scaled_dot_product_attention(Q, K, V, mask)
+        attn_output = self.dropout(self.scaled_dot_product_attention(Q, K, V, mask))
         attn_output = (
             attn_output.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
         ) # flatten and resize 
