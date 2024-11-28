@@ -1,5 +1,7 @@
 """Implements MultiHeaded Attention mechanism"""
 
+from typing import Optional
+
 import math
 
 import torch as T
@@ -9,28 +11,48 @@ import torch.nn.functional as F
 
 class MultiHeadAttention(nn.Module):
 
-    def __init__(self, d_model: int, num_heads: int):
+    def __init__(self, d_model: int, num_heads: int, d_keys: Optional[int]=None, d_values: Optional[int]=None):
         super().__init__()
         self.d_model = d_model
+        self.d_keys = d_keys or d_model
+        self.d_values = d_values or d_model
+
         self.num_heads = num_heads
         self.head_dim = d_model // num_heads
 
-        self.q_proj = nn.Linear(d_model, d_model, bias=False)
-        self.k_proj = nn.Linear(d_model, d_model, bias=False)
-        self.v_proj = nn.Linear(d_model, d_model, bias=False)
+        self.q_proj = nn.Linear(self.d_model, self.d_keys, bias=False)
+        self.k_proj = nn.Linear(self.d_model, self.d_keys, bias=False)
+        self.v_proj = nn.Linear(self.d_model, self.d_values, bias=False)
 
-        self.linear_transform = nn.Linear(d_model, d_model)
+        self.linear_transform = nn.Linear(self.d_values, d_model)
+
+        # Additional implemtation for scaled additive attention
+        # self.alignment_model = nn.Linear()
 
     def scaled_dot_product_attention(
         self, Q: T.Tensor, K: T.Tensor, V: T.Tensor, mask: T.Tensor | None = None
     ) -> T.Tensor:
-        """Computes scaled dot-product attention"""
+        """
+        Computes scaled dot-product attention
+        Batched & split across multiple heads
+        """
 
-        Q_K = Q @ K.T if not mask else apply_mask(Q @ K.T, mask)
+        # handle mask dim for multi-headed attention
+        mask = mask.unsqueeze(1) if mask else mask
 
-        v_activations = F.softmax(Q_K / math.sqrt(self.d_model), dim=-1)  # (N, N)
+        Q_K = Q @ K.transpose(-2,-1) if not mask else apply_mask(Q @ K.transpose(-2,-1), mask)
 
-        return v_activations @ V  # (N, d_model)
+        v_activations = F.softmax(Q_K / math.sqrt(self.d_keys), dim=-1)  # (B, N_H, N, N)
+
+        return v_activations @ V  # (B, N_H, N, H_Dim)
+    
+    def scaled_additive_attention(self, Q: T.Tensor, K: T.Tensor, V: T.Tensor, mask: T.Tensor | None = None) -> T.Tensor:
+        """
+        Computes scaled additive attention
+        In paper it was mentioned that dot-product attention outperforms additive attention
+        additive attention paper: https://arxiv.org/pdf/1409.0473
+        """
+        return T.tensor([])
 
     def forward(
         self,
@@ -53,9 +75,31 @@ class MultiHeadAttention(nn.Module):
         attn_output = self.scaled_dot_product_attention(Q, K, V, mask)
         attn_output = (
             attn_output.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
-        )
+        ) # flatten and resize 
 
         return self.linear_transform(attn_output)
+
+
+class MultiHeadCrossAttention(nn.Module):
+    """
+    Derived MultiHeadAttention to compute cross-attention
+    """
+    def __init__(self, d_model, num_heads, d_keys = None, d_values = None):
+        self.attn = MultiHeadAttention(d_model, num_heads, d_keys, d_values)
+
+    def forward(self, query: T.Tensor, key: T.Tensor, value: T.Tensor, mask: T.Tensor) -> T.Tensor:
+        return self.attn(query, key, value, mask)
+
+
+class MultiHeadSelfAttention(nn.Module):
+    """
+    Derived MultiHeadAttention to compute self-attention
+    """
+    def __init__(self, d_model, num_heads, d_keys = None, d_values = None):
+        self.attn = MultiHeadAttention(d_model, num_heads, d_keys, d_values)
+
+    def forward(self, inputs: T.Tensor, mask:T.Tensor, is_causal:bool) -> T.Tensor:
+        return self.attn(inputs, inputs, inputs, mask, is_causal)
 
 
 def apply_mask(inputs: T.Tensor, mask: T.Tensor) -> T.Tensor:
@@ -63,8 +107,8 @@ def apply_mask(inputs: T.Tensor, mask: T.Tensor) -> T.Tensor:
     return inputs.masked_fill(mask.logical_not(), float("-inf"))
 
 
-def add_causal_mask(mask: T.Tensor | None, seq_length: int) -> T.Tensor:
+def add_causal_mask(mask: T.BoolTensor | None, seq_length: int) -> T.BoolTensor:
     """Returns mask concatenated with causal mask"""
-    causal_mask = T.tril(seq_length, seq_length, dtype=T.bool)
+    causal_mask = T.ones(seq_length, seq_length, dtype=T.bool).tril()
     mask = mask & causal_mask if mask else causal_mask
     return mask
