@@ -5,8 +5,8 @@ Slowformer is a transformer framework designed to prioritize:
 - Deliberate Speed: Crafted for research and experimentation, Slowformer values clarity and explainability over raw computational speed.
 
 ## ToDo List
-- [ ] Implement Basic Transformer Model
+- [X] Implement Basic Transformer Model
 
 ## Reading List
 ### Transformer Architecture
-- [ ] [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
+- [X] [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
